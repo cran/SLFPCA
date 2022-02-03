@@ -28,8 +28,16 @@ init_eig_setting <- function(Ly, Lt, bwmu, bwcov, xout, npc, basis){
   eigfd_est <- fda::smooth.basis(xout, eigfun_est, basis)$fd
   Theta_est <- t(eigfd_est$coefs)
 
-  score_est <- matrix(stats::rnorm(n * npc), nrow = n, ncol = npc)
-  score_est <- t(t(score_est) * sqrt(eigen(covfun_est)$values[1:npc]))
+  eigfd_adj <- list()
+  eigval <- eigen(covfun_est)$values[1:npc]
+  for(i in 1:npc){
+    multi_eig <- as.numeric(fda::inprod(eigfd_est[i], eigfd_est[i]))
+    eigfd_adj[[i]] <- eigfd_est[i] * multi_eig^(-1/2)
+    Theta_est[i,] <- Theta_est[i,] * multi_eig^(-1/2)
+    eigval[i] <- eigval[i] * multi_eig
+  }
+
+  score_est <- matrix(0, nrow = n, ncol = npc)
 
   init <- list()
   init$Theta_est <- Theta_est

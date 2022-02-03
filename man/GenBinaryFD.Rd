@@ -51,5 +51,4 @@ for(i in 1:npc){
 DataNew <- GenBinaryFD(n, interval, sparse = 8:12, regular = FALSE,
            meanfun = meanfun, score, eigfd)
 
-
 }

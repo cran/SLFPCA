@@ -37,7 +37,6 @@
 #' DataNew <- GenBinaryFD(n, interval, sparse = 8:12, regular = FALSE,
 #'            meanfun = meanfun, score, eigfd)
 #'
-#'
 GenBinaryFD <- function(n, interval, sparse, regular, meanfun, score, eigfd){
 
   npc <- ncol(score)
@@ -58,13 +57,10 @@ GenBinaryFD <- function(n, interval, sparse, regular, meanfun, score, eigfd){
 
     scorei <- score[i,]
     x <- meanfun(Lt[[i]])
-    # x_reg <- meanfun(gridequal)
     for(j in 1:npc){
       x <- x + scorei[j] * fda::eval.fd(Lt[[i]], eigfd[[j]])
-      # x_reg <- x_reg + delta * scorei[j] * eval.fd(gridequal, eigfd[[j]])
     }
     Lx[[i]] <- x
-    # Lx_reg[[i]] <- x_reg
     Ly[[i]] <- sapply(linkfun(Lx[[i]]), function(x){stats::rbinom(1, 1, x)})
   }
 

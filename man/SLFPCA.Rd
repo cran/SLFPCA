@@ -9,7 +9,7 @@ SLFPCA(
   Lt,
   interval,
   npc,
-  nknots,
+  L_list,
   norder,
   kappa_theta,
   sparse_pen,
@@ -31,7 +31,7 @@ SLFPCA(
 
 \item{npc}{An integer denoting the number of FPCs.}
 
-\item{nknots}{An integer denoting the number of interior knots for the using B-spline basis.}
+\item{L_list}{A \code{vector} denoting the candidates for the number of B-spline basis functions.}
 
 \item{norder}{An integer denoting the order of the using B-spline basis, which is one higher than their degree.}
 
@@ -61,6 +61,8 @@ A \code{list} containing the following components:
 \item{kappa_mu}{A scalar denoting the selected smoothing parameter for mean function.}
 \item{kappa_theta}{A scalar denoting the selected smoothing parameter for eigenfunctions.}
 \item{sparse_pen}{A scalar denoting the selected sparseness parameter for eigenfunctions.}
+\item{L_select}{A scalar denoting the selected number of B-spline basis functions.}
+\item{EBICscore}{A \code{vector} denoting the selected EBIC scores corresponding to different numbers of B-spline basis functions in \code{L_list}.}
 }
 \description{
 Sparse logistic functional principal component analysis (SLFPCA) for binary data. The estimated eigenfunctions from SLFPCA can be strictly zero on some sub-intervals, which is helpful for interpretation.
@@ -84,9 +86,12 @@ for(i in 1:npc){
 }
 DataNew <- GenBinaryFD(n, interval, sparse = 8:12, regular = FALSE,
            meanfun = meanfun, score, eigfd)
-SLFPCA_list <- SLFPCA(DataNew$Ly, DataNew$Lt, interval, npc, nknots = 9, norder = 4,
-               kappa_theta = 0.2, sparse_pen = 0,
+SLFPCA_list <- SLFPCA(DataNew$Ly, DataNew$Lt, interval, npc, L_list = 13,
+               norder = 4, kappa_theta = 0.2, sparse_pen = 0,
                nRegGrid = 51, stepmu = 0.005)
 plot(SLFPCA_list$eigfd_list[[1]])
 
+}
+\references{
+\cite{Rou Zhong, Shishi Liu, Haocheng Li, Jingxiao Zhang (2021). "Sparse logistic functional principal component analysis for binary data." <arXiv: https://arxiv.org/abs/2109.08009>.}
 }

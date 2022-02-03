@@ -28,7 +28,7 @@ slos_temp = function(Y, U, Maxiter, lambda, gamma, beta.basis, absTol, Cutoff)
   if(lambda > 0)
   {
     changeThres = absTol
-    bTilde = slosLQA(U,Y,V,bHat,W,gamma,lambda,Maxiter,M,L,L2NNer,absTol,a=3.7) #文章的Step 2
+    bTilde = slosLQA(U,Y,V,bHat,W,gamma,lambda,Maxiter,M,L,L2NNer,absTol,a=3.7)
     bZero = (abs(bTilde) < Cutoff)
     bTilde[bZero] = 0
 
