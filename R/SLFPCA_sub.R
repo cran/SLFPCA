@@ -1,7 +1,6 @@
-# SLFPCA for a given L
 SLFPCA_sub <- function(Ly, Lt, interval, npc, nknots, norder, kappa_theta, sparse_pen,
-                       nRegGrid = 51, bwmu_init = 0.5, bwcov_init = 1, stepmu, mucand_num = 100,
-                       itermax = 100, tol = 0.5){
+                       nRegGrid = 51, bwmu_init = 0.5, bwcov_init = 1, kappa_mu,
+                       itermax = 100, tol = 10){
 
   n <- length(Ly)
   start_time <- interval[1]
@@ -35,112 +34,31 @@ SLFPCA_sub <- function(Ly, Lt, interval, npc, nknots, norder, kappa_theta, spars
   Theta_ini <- init_eig$Theta_est
   score_ini <- init_eig$score_est
 
-  #
-  mu_est <- mu_ini
-  Theta_est <- Theta_ini
-  score_est <- score_ini
 
-  ################estimation of mean function#######################
-  # Compute Xtilde
-  Btheta <- NULL
-  Bmu <- NULL
-  for(i in 1:n){
-    Bmu <- c(Bmu, Blist[[i]] %*% mu_est)
-    Btheta <- c(Btheta, Blist[[i]] %*% t(Theta_est) %*% score_est[i,])
-  }
-  Delta <- Bmu + Btheta
+  #################Estimation###################
+  BICscore <- array(0, c(length(kappa_mu), length(sparse_pen), length(kappa_theta)))
+  mu_res <- array(0, c(L, length(kappa_mu), length(sparse_pen), length(kappa_theta)))
+  score_res <- array(0, c(n, npc, length(kappa_mu), length(sparse_pen), length(kappa_theta)))
+  Theta_res <- array(0, c(npc, L, length(kappa_mu), length(sparse_pen), length(kappa_theta)))
 
-  XX <- Delta + 4 * unlist(Lq) * (1 - linkfun(unlist(Lq) * Delta))
+  for(mm in 1:length(kappa_mu)){
+    for(ii in 1:length(sparse_pen)){
+      for(jj in 1:length(kappa_theta)){
 
-  Xtilde <- XX - Btheta
+        print(paste("Tuning parameters: kappa_theta = ", kappa_theta[jj],
+                    ",  sparse_pen = ", sparse_pen[ii], ", kappa_mu = ",
+                    kappa_mu[mm], sep = ""))
 
-  # select tuning parameter
-  mu_rou_par <- 0
-  gcv_mu <- NULL
-  gcv_mu[1] <- gcvscoremu(Xtilde, B, B_der, mu_rou_par)
-  r <- 2
-  while(r <= mucand_num){
-    mu_rou_par <- mu_rou_par + stepmu
-    gcv_mu[r] <- gcvscoremu(Xtilde, B, B_der, mu_rou_par)
-    if(gcv_mu[r] - gcv_mu[r - 1] > 0){
-      break
-    }
-    r <- r + 1
-  }
-  rough_mu_pen <- mu_rou_par - stepmu
-  # estimate
-  sum_m <- nrow(B)
-  mu_est <- solve(t(B) %*% B + sum_m * rough_mu_pen * B_der) %*% t(B) %*% Xtilde
+        mu_est <- mu_ini
+        Theta_est <- Theta_ini
+        score_est <- score_ini
 
+        loglike_loop <- NULL
+        loop <- 1
+        while(loop <= itermax){ # outer loop
 
-  #################estimation of scores and eigenfunctions###################
-  BICscore <- matrix(0, nrow = length(sparse_pen), ncol = length(kappa_theta))
-  score_res <- array(0, c(n, npc, length(sparse_pen), length(kappa_theta)))
-  Theta_res <- array(0, c(npc, L, length(sparse_pen), length(kappa_theta)))
-
-  for(ii in 1:length(sparse_pen)){
-    for(jj in 1:length(kappa_theta)){
-
-      print(paste("Tuning parameters: kappa_theta = ", kappa_theta[jj],
-                  ",  sparse_pen = ", sparse_pen[ii], ":", sep = ""))
-
-      Theta_est <- Theta_ini
-      score_est <- score_ini
-      Btheta <- NULL
-      Bmu <- NULL
-      for(i in 1:n){
-        Bmu <- c(Bmu, Blist[[i]] %*% mu_est)
-        Btheta <- c(Btheta, Blist[[i]] %*% t(Theta_est) %*% score_est[i,])
-      }
-      Delta <- Bmu + Btheta
-
-      loglike <- -sum(log(linkfun(unlist(Lq) * Delta)))
-      df <- NULL
-
-      for(k in 1:npc){
-
-        XX <- Delta + 4 * unlist(Lq) * (1 - linkfun(unlist(Lq) * Delta))
-        Bthetasub <- NULL
-        for(i in 1:n){
-          Bthetasub <- c(Bthetasub, Blist[[i]] %*% t(Theta_est)[,-k] %*% score_est[i, -k])
-        }
-        Xk <- XX - B %*% mu_est - Bthetasub
-
-        m <- 1
-        while(m <= itermax){
-
-          ## score estimation
-          phi_est <- B %*% Theta_est[k,]
-
-          index <- 1
-          for(i in 1:n){
-            range <- index:(index + length(Lt[[i]]) - 1)
-            score_est[i,k] <- sum(phi_est[range] * Xk[range])/sum(phi_est[range]^2)
-            index <- index + length(Lt[[i]])
-          }
-          nanid <- which(is.nan(score_est[,k]))
-          score_est[nanid, k] <- mean(score_est[,k], na.rm = T)
-
-          ## eigenfunction estimation
-          U <- matrix(0, nrow = 1, ncol = L)
-          Ulist <- list()
-          for(i in 1:n){
-            Ulist[[i]] <- score_est[i, k] * Blist[[i]]
-            U <- rbind(U, Ulist[[i]])
-          }
-          U <- U[-1,]
-          Theta_est[k,] <- tryCatch(slos_temp(Xk, U, Maxiter = 100, lambda = sparse_pen[ii],
-                                              gamma = kappa_theta[jj], beta.basis = basis_mod,
-                                              absTol = 0.0004, Cutoff = 0),
-                                    error = function(err){return(rep(Inf, nknots + norder))})
-          if(sum(Theta_est[k,]) == Inf){
-            Theta_est[k,] <- rep(0.5, nknots + norder)
-            break
-          }
-
-          ## negative loglikelihood
-          loglike_old <- loglike
-
+          ################estimation of mean function#######################
+          # Compute Xtilde
           Btheta <- NULL
           Bmu <- NULL
           for(i in 1:n){
@@ -148,57 +66,144 @@ SLFPCA_sub <- function(Ly, Lt, interval, npc, nknots, norder, kappa_theta, spars
             Btheta <- c(Btheta, Blist[[i]] %*% t(Theta_est) %*% score_est[i,])
           }
           Delta <- Bmu + Btheta
+
           loglike <- -sum(log(linkfun(unlist(Lq) * Delta)))
 
-          # cat(ii, " ", jj, "  ", k, "  ", m, "  ", loglike, "\n")
+          XX <- Delta + 4 * unlist(Lq) * (1 - linkfun(unlist(Lq) * Delta))
 
-          if(abs(loglike - loglike_old) < tol){
+          Xtilde <- XX - Btheta
+
+          # estimate
+          sum_m <- nrow(B)
+          mu_est <- solve(t(B) %*% B + sum_m * kappa_mu[mm] * B_der) %*% t(B) %*% Xtilde
+
+          #################estimation of scores and eigenfunctions###################
+          df <- NULL
+
+          for(k in 1:npc){
+
+            Bthetasub <- NULL
+            for(i in 1:n){
+              Bthetasub <- c(Bthetasub, Blist[[i]] %*% t(Theta_est)[,-k] %*% score_est[i, -k])
+            }
+            Xk <- XX - B %*% mu_est - Bthetasub
+
+            m <- 1
+            while(m <= itermax){
+
+              ## score estimation
+              phi_est <- B %*% Theta_est[k,]
+
+              index <- 1
+              for(i in 1:n){
+                range <- index:(index + length(Lt[[i]]) - 1)
+                score_est[i,k] <- sum(phi_est[range] * Xk[range])/sum(phi_est[range]^2)
+                index <- index + length(Lt[[i]])
+              }
+              nanid <- which(is.nan(score_est[,k]))
+              score_est[nanid, k] <- mean(score_est[,k], na.rm = T)
+
+              ## eigenfunction estimation
+              U <- matrix(0, nrow = 1, ncol = L)
+              Ulist <- list()
+              for(i in 1:n){
+                Ulist[[i]] <- score_est[i, k] * Blist[[i]]
+                U <- rbind(U, Ulist[[i]])
+              }
+              U <- U[-1,]
+              Theta_est[k,] <- tryCatch(slos_temp(Xk, U, Maxiter = 100, lambda = sparse_pen[ii],
+                                                  gamma = kappa_theta[jj], beta.basis = basis_mod,
+                                                  absTol = 0.0004, Cutoff = 0),
+                                        error = function(err){return(rep(Inf, nknots + norder))})
+              if(sum(Theta_est[k,]) == Inf){
+                Theta_est[k,] <- rep(0.5, nknots + norder)
+                break
+              }
+
+              ## negative loglikelihood
+              loglike_old <- loglike
+
+              Btheta <- NULL
+              Bmu <- NULL
+              for(i in 1:n){
+                Bmu <- c(Bmu, Blist[[i]] %*% mu_est)
+                Btheta <- c(Btheta, Blist[[i]] %*% t(Theta_est) %*% score_est[i,])
+              }
+              Delta <- Bmu + Btheta
+              loglike <- -sum(log(linkfun(unlist(Lq) * Delta)))
+
+              # cat(ii, " ", jj, "  ", k, "  ", m, "  ", loglike, "\n")
+
+              if(abs(loglike - loglike_old) < tol){
+                break
+              }
+
+              m <- m + 1
+
+            }
+
+            ####df
+            if(sum(abs(diff(c(Theta_est[k,])))) == 0){
+              df[k] <- Inf
+              break
+            }else{
+              sparse.idx = which(Theta_est[k,] == 0)
+              if(length(sparse.idx) == 0)
+              {
+                ula = U
+                vla = B_der
+              }
+              else{
+                ula  = U[, -sparse.idx]
+                vla  = B_der[-sparse.idx, -sparse.idx]
+              }
+              hat2 = ula%*%solve(t(ula)%*%ula + sum_m * kappa_theta[jj]*vla)%*%t(ula)
+              df[k]  = psych::tr(hat2)
+            }
+
+          }
+
+          if(sum(df) == Inf){
             break
           }
 
-          m <- m + 1
+          loglike_loop[loop] <- loglike
+          if(loop != 1){
+
+            if((abs(loglike_loop[loop] - loglike_loop[loop - 1]) < tol)|(loglike_loop[loop] > loglike_loop[loop - 1])){
+              break
+            }
+
+          }
+
+          print(loop)
+          print(loglike_loop[loop])
+          loop <- loop + 1
 
         }
 
-        ####df
-        if(sum(abs(diff(c(Theta_est[k,])))) == 0){
-          df[k] <- Inf
-          break
-        }else{
-          sparse.idx = which(Theta_est[k,] == 0)
-          if(length(sparse.idx) == 0)
-          {
-            ula = U
-            vla = B_der
-          }
-          else{
-            ula  = U[, -sparse.idx]
-            vla  = B_der[-sparse.idx, -sparse.idx]
-          }
-          hat2 = ula%*%solve(t(ula)%*%ula + sum_m * kappa_theta[jj]*vla)%*%t(ula)
-          df[k]  = psych::tr(hat2)
-        }
+        mu_res[, mm, ii, jj] <- mu_est
+        score_res[, , mm, ii, jj] <- score_est
+        Theta_res[, , mm, ii, jj] <- Theta_est
+
+        #BIC
+        BICscore[mm, ii, jj] <- 2 * loglike + log(length(unlist(Lt))) * sum(df) +
+          0.5 * sum(df) * log(npc * (nknots + norder) + n * npc)
+
 
       }
 
-      score_res[, , ii, jj] <- score_est
-      Theta_res[, , ii, jj] <- Theta_est
-
-      #BIC
-      BICscore[ii, jj] <- 2 * loglike + log(length(unlist(Lt))) * sum(df) +
-        0.5 * sum(df) * log(npc * (nknots + norder) + n * npc)
-
-      # cat("==================BIC =", BICscore[ii, jj], "=================", "\n")
-      # print(paste(ii, " ", jj))
-
     }
+
   }
 
-  ######choose tuning parameters that achieve lowest EBIC score#############
-  ii <- which(BICscore == min(BICscore), arr.ind = T)[1]
-  jj <- which(BICscore == min(BICscore), arr.ind = T)[2]
-  Theta_est <- as.matrix(Theta_res[, , ii, jj])
-  score_est <- as.matrix(score_res[, , ii, jj])
+  ######choose tuning parameters that achieve lowest BIC score#############
+  mm <- which(BICscore == min(BICscore), arr.ind = T)[1]
+  ii <- which(BICscore == min(BICscore), arr.ind = T)[2]
+  jj <- which(BICscore == min(BICscore), arr.ind = T)[3]
+  mu_est <- mu_res[, mm, ii, jj]
+  Theta_est <- as.matrix(Theta_res[, , mm, ii, jj])
+  score_est <- as.matrix(score_res[, , mm, ii, jj])
 
   B_reg <- splines::bs(x = gridequal, degree = norder - 1,
                        knots = seq(start_time, end_time, length.out = nknots + 2)[-c(1, nknots + 2)],
@@ -222,12 +227,11 @@ SLFPCA_sub <- function(Ly, Lt, interval, npc, nknots, norder, kappa_theta, spars
   ret$mufd <- mufd_est
   ret$eigfd_list <- eigfd_est_st
   ret$score <- score_est
-  ret$kappa_mu <- rough_mu_pen
+  ret$kappa_mu <- kappa_mu[mm]
   ret$kappa_theta <- kappa_theta[jj]
   ret$sparse_pen <- sparse_pen[ii]
-  ret$EBICscore <- BICscore[ii, jj]
+  ret$EBICscore <- BICscore[mm, ii, jj]
 
   return(ret)
-
 
 }

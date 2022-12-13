@@ -16,10 +16,9 @@ SLFPCA(
   nRegGrid = 51,
   bwmu_init = 0.5,
   bwcov_init = 1,
-  stepmu,
-  mucand_num = 100,
+  kappa_mu,
   itermax = 100,
-  tol = 0.5
+  tol = 10
 )
 }
 \arguments{
@@ -45,13 +44,11 @@ SLFPCA(
 
 \item{bwcov_init}{A scalar denoting the bandwidth for covariance function estimation in the setting of initial values. (default: 1)}
 
-\item{stepmu}{A scalar denoting the length between each considered smoothing parameter for mean function. For selection of smoothing parameter for mean function, we start from zero and increase the value until GCV score begins increasing.}
-
-\item{mucand_num}{An integer denoting the maximum number of the considered smoothing parameter for mean function. (default: 100)}
+\item{kappa_mu}{A \code{vector} denoting the smoothing parameters for mean function, the optimal tuning parameter is chosen from them.}
 
 \item{itermax}{An integer denoting the maximum number of iterations. (default: 100)}
 
-\item{tol}{A scalar. When difference of the loglikelihood functions between two consecutive iteration is less than \code{tol}, the convergence is supposed to be reached. (default: 0.5)}
+\item{tol}{A scalar. When difference of the loglikelihood functions between two consecutive iteration is less than \code{tol}, the convergence is supposed to be reached. (default: 10)}
 }
 \value{
 A \code{list} containing the following components:
@@ -87,11 +84,10 @@ for(i in 1:npc){
 DataNew <- GenBinaryFD(n, interval, sparse = 8:12, regular = FALSE,
            meanfun = meanfun, score, eigfd)
 SLFPCA_list <- SLFPCA(DataNew$Ly, DataNew$Lt, interval, npc, L_list = 13,
-               norder = 4, kappa_theta = 0.2, sparse_pen = 0,
-               nRegGrid = 51, stepmu = 0.005)
+               norder = 4, kappa_theta = 0.2, sparse_pen = 0, kappa_mu = 0)
 plot(SLFPCA_list$eigfd_list[[1]])
 
 }
 \references{
-\cite{Rou Zhong, Shishi Liu, Haocheng Li, Jingxiao Zhang (2021). "Sparse logistic functional principal component analysis for binary data." <arXiv: https://arxiv.org/abs/2109.08009>.}
+\cite{Rou Zhong, Shishi Liu, Haocheng Li, Jingxiao Zhang. Sparse logistic functional principal component analysis for binary data. Statistics and Computing, 33, 15 (2023). https://doi.org/10.1007/s11222-022-10190-3}
 }

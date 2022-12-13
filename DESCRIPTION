@@ -1,6 +1,6 @@
 Package: SLFPCA
 Title: Sparse Logistic Functional Principal Component Analysis
-Version: 2.0
+Version: 3.0
 Authors@R: c(person(given = "Rou", family = "Zhong", role = c("aut", "cre"),
                     email = "zhong_rou@163.com"),
              person(given = "Jingxiao", family = "Zhang", role = "aut"))
@@ -10,9 +10,9 @@ Encoding: UTF-8
 RoxygenNote: 7.1.1
 Imports: fda, fdapace, psych, splines, stats
 NeedsCompilation: no
-Packaged: 2022-02-03 09:33:56 UTC; 11013
+Packaged: 2022-12-13 07:39:36 UTC; 11013
 Author: Rou Zhong [aut, cre],
   Jingxiao Zhang [aut]
 Maintainer: Rou Zhong <zhong_rou@163.com>
 Repository: CRAN
-Date/Publication: 2022-02-03 10:10:02 UTC
+Date/Publication: 2022-12-13 08:20:05 UTC

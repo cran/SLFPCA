@@ -13,10 +13,9 @@
 #' @param nRegGrid An integer denoting the number of equally spaced time points in the supporting interval. The eigenfunctions and mean function are estimated at these equally spaced time points first, before transforming into functional data object. (default: 51)
 #' @param bwmu_init A scalar denoting the bandwidth for mean function estimation in the setting of initial values. (default: 0.5)
 #' @param bwcov_init A scalar denoting the bandwidth for covariance function estimation in the setting of initial values. (default: 1)
-#' @param stepmu A scalar denoting the length between each considered smoothing parameter for mean function. For selection of smoothing parameter for mean function, we start from zero and increase the value until GCV score begins increasing.
-#' @param mucand_num An integer denoting the maximum number of the considered smoothing parameter for mean function. (default: 100)
+#' @param kappa_mu A \code{vector} denoting the smoothing parameters for mean function, the optimal tuning parameter is chosen from them.
 #' @param itermax An integer denoting the maximum number of iterations. (default: 100)
-#' @param tol A scalar. When difference of the loglikelihood functions between two consecutive iteration is less than \code{tol}, the convergence is supposed to be reached. (default: 0.5)
+#' @param tol A scalar. When difference of the loglikelihood functions between two consecutive iteration is less than \code{tol}, the convergence is supposed to be reached. (default: 10)
 #'
 #' @return A \code{list} containing the following components:
 #' \item{mufd}{A functional data object for the mean function estimate.}
@@ -30,7 +29,7 @@
 #' @export
 #'
 #' @references
-#' \cite{Rou Zhong, Shishi Liu, Haocheng Li, Jingxiao Zhang (2021). "Sparse logistic functional principal component analysis for binary data." <arXiv: https://arxiv.org/abs/2109.08009>.}
+#' \cite{Rou Zhong, Shishi Liu, Haocheng Li, Jingxiao Zhang. Sparse logistic functional principal component analysis for binary data. Statistics and Computing, 33, 15 (2023). https://doi.org/10.1007/s11222-022-10190-3}
 #'
 #' @examples
 #' #Generate data
@@ -52,22 +51,21 @@
 #' DataNew <- GenBinaryFD(n, interval, sparse = 8:12, regular = FALSE,
 #'            meanfun = meanfun, score, eigfd)
 #' SLFPCA_list <- SLFPCA(DataNew$Ly, DataNew$Lt, interval, npc, L_list = 13,
-#'                norder = 4, kappa_theta = 0.2, sparse_pen = 0,
-#'                nRegGrid = 51, stepmu = 0.005)
+#'                norder = 4, kappa_theta = 0.2, sparse_pen = 0, kappa_mu = 0)
 #' plot(SLFPCA_list$eigfd_list[[1]])
 #'
 SLFPCA <- function(Ly, Lt, interval, npc, L_list, norder, kappa_theta, sparse_pen,
-                   nRegGrid = 51, bwmu_init = 0.5, bwcov_init = 1, stepmu, mucand_num = 100,
-                   itermax = 100, tol = 0.5){
+                   nRegGrid = 51, bwmu_init = 0.5, bwcov_init = 1, kappa_mu,
+                   itermax = 100, tol = 10){
 
   EBICscore <- NULL
   SLFPCA_l <- list()
   for(l_id in 1:length(L_list)){
 
     nknots <- L_list[l_id] - norder
-    SLFPCA_l[[l_id]] <- SLFPCA_sub(Ly, Lt, interval, npc, nknots = nknots, norder,
-                                   kappa_theta, sparse_pen, nRegGrid, bwmu_init, bwcov_init,
-                                   stepmu, mucand_num, itermax, tol)
+    SLFPCA_l[[l_id]] <- SLFPCA_sub(Ly, Lt, interval, npc, nknots,
+                                   norder, kappa_theta, sparse_pen, nRegGrid,
+                                   bwmu_init, bwcov_init, kappa_mu, itermax, tol)
     EBICscore[l_id] <- SLFPCA_l[[l_id]]$EBICscore
 
     print(paste("L =", L_list[l_id]))
